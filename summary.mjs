@@ -1,7 +1,7 @@
 // Pure helpers for the Footgun scan action: input checks, the job summary, annotations, and the badge.
 
 /** The CLI release this action runs. Pinned so a new CLI never changes a workflow without a new action release. */
-export const CLI_VERSION = "0.2.2";
+export const CLI_VERSION = "0.2.3";
 
 const FAIL_ON = ["breaks", "will-break", "none"];
 
