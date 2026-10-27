@@ -28,6 +28,8 @@ jobs:
 | `path` | `.` | Folder to scan, relative to the repository root. |
 | `fail-on` | `none` | `breaks` fails the job when something breaks now. `will-break` also fails on anything with a known break date or version. `none` only reports. Check-yourself items never fail the job. |
 | `api-key` | | A Footgun API key, to also scan with your private traps. Pass it from a secret: `api-key: ${{ secrets.FOOTGUN_API_KEY }}`. |
+| `watch` | `false` | `true` also sends this project to [Footgun Watch](https://getfootgun.com/docs#watch), which lists new and changed traps that match your exact package versions on your Projects page. Needs `api-key` from a Pro or Team plan; without one the action logs a warning and sends nothing. |
+| `project` | `owner/repo` | Name of the Watch project. |
 
 ## Outputs
 
@@ -42,6 +44,17 @@ jobs:
 The runner needs Node.js on its PATH. GitHub-hosted runners have it; on a self-hosted runner, add `actions/setup-node` first.
 
 The scanner sends one anonymous usage count per scan (that it ran, and how many traps matched at each severity, never paths, package names or code). Set `FOOTGUN_SHARE: "false"` in the job's `env` to turn it off.
+
+## Watch
+
+With `watch: "true"`, the action sends the project name, the folder of each package file (such as `apps/web`), your package names and versions (npm, PyPI and GitHub Actions), the repository link, and for each finding its trap id, file path and line. Versions come from your lockfile when there is one, otherwise the lowest version your range allows. It never sends code, snippets or matched text. Watch needs a Pro or Team API key.
+
+```yaml
+      - uses: GetFootgun/scan-action@v1
+        with:
+          api-key: ${{ secrets.FOOTGUN_API_KEY }}
+          watch: "true"
+```
 
 ## Badge
 

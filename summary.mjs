@@ -1,7 +1,7 @@
 // Pure helpers for the Footgun scan action: input checks, the job summary, annotations, and the badge.
 
 /** The CLI release this action runs. Pinned so a new CLI never changes a workflow without a new action release. */
-export const CLI_VERSION = "0.2.3";
+export const CLI_VERSION = "0.3.0";
 
 const FAIL_ON = ["breaks", "will-break", "none"];
 
@@ -12,10 +12,23 @@ export function parseFailOn(v) {
 }
 
 /** Arguments for `npx`. --fail-on none means no --fail-on flag. */
-export function cliArgs({ path, failOn }) {
+export function cliArgs({ path, failOn, watchArgs = /** @type {string[]} */ ([]) }) {
   const args = ["--yes", `@getfootgun/footgun@${CLI_VERSION}`, "scan", path, "--json"];
   if (failOn !== "none") args.push("--fail-on", failOn);
-  return args;
+  return [...args, ...watchArgs];
+}
+
+/**
+ * Extra CLI arguments for Watch. Only watch: "true" with a non-empty api-key sends anything; without a key it
+ * returns a core warning command and no arguments. The project defaults to the repository's owner/name.
+ */
+export function watchPlan({ watch, apiKey, project, env }) {
+  if ((watch || "").trim().toLowerCase() !== "true") return { args: [], warning: null };
+  if (!apiKey) return { args: [], warning: "::warning::Footgun watch needs an api-key (a Pro or Team key, passed from a secret). Nothing was sent." };
+  const repo = env.GITHUB_REPOSITORY ?? "";
+  const args = ["--watch", "--project", project || repo];
+  if (repo && env.GITHUB_SERVER_URL) args.push("--repo-url", `${env.GITHUB_SERVER_URL.replace(/\/+$/, "")}/${repo}`);
+  return { args, warning: null };
 }
 
 const GROUPS = [
@@ -34,9 +47,9 @@ export function counts(findings) {
   return { problems: found.length, breaks: by("breaks"), willBreak: by("will-break"), manual: findings.length - found.length };
 }
 
-/** The same badge `footgun scan` prints: "no known API traps" only when nothing at all was found. */
+/** The same badge `footgun scan` prints: "no known API traps" only when nothing was found apart from launch reminders. */
 export function badgeFor(findings, date, base = "https://getfootgun.com") {
-  return findings.length === 0
+  return findings.every((f) => f.manual && f.launch)
     ? `[![No known API traps on ${date} · Footgun](${base}/badge.svg?s=clean&d=${date})](${base}/scan)`
     : `[![Scanned by Footgun on ${date}](${base}/badge.svg?s=scanned&d=${date})](${base}/scan)`;
 }
@@ -89,4 +102,26 @@ export function annotations(findings, path) {
     const file = path === "." ? f.file : `${path.replace(/\/+$/, "")}/${f.file}`;
     return `::warning file=${escProp(file)}${f.line ? `,line=${f.line}` : ""},title=${escProp(`Footgun: ${f.title}`)}::${esc(`${f.fix}${f.url ? ` ${f.url}` : ""}`)}`;
   });
+}
+
+const SAFE_PROJECT = /^[A-Za-z0-9._/@ -]{1,200}$/;
+
+/**
+ * How to run `npx` without a shell where possible. npm ships npx-cli.js (next to node on Windows, under ../lib on
+ * other systems); running it with node needs no shell, so no argument is ever re-parsed. If it is not found, other
+ * systems run npx directly, and Windows (where npx.cmd needs a shell) gets a quoted command line after the project
+ * name passes a strict check.
+ */
+export function npxInvocation({ platform, execPath, args, exists, join }) {
+  const dir = execPath.slice(0, Math.max(execPath.lastIndexOf("/"), execPath.lastIndexOf("\\")));
+  const candidates = platform === "win32"
+    ? [join(dir, "node_modules", "npm", "bin", "npx-cli.js")]
+    : [join(dir, "..", "lib", "node_modules", "npm", "bin", "npx-cli.js")];
+  const cli = candidates.find((c) => exists(c));
+  if (cli) return { command: execPath, args: [cli, ...args], shell: false };
+  if (platform !== "win32") return { command: "npx", args, shell: false };
+  const at = args.indexOf("--project");
+  if (at !== -1 && !SAFE_PROJECT.test(args[at + 1] ?? "")) throw new Error("project may only use letters, digits, spaces and . _ / @ -");
+  const quote = (a) => (/^[A-Za-z0-9._/:@=-]+$/.test(a) ? a : `"${a.replace(/"/g, '""')}"`);
+  return { command: "npx.cmd", args: args.map(quote), shell: true };
 }

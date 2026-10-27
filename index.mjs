@@ -1,8 +1,9 @@
 // Footgun scan action: runs the pinned Footgun CLI on the checked-out code, writes a job summary, and fails the job
 // only when fail-on asks for it. The scan runs on the runner; no code is sent anywhere.
 import { spawnSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
-import { annotations, badgeFor, cliArgs, counts, parseFailOn, summaryMarkdown } from "./summary.mjs";
+import { appendFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { annotations, badgeFor, cliArgs, counts, parseFailOn, summaryMarkdown, watchPlan, npxInvocation } from "./summary.mjs";
 
 const input = (name) => (process.env[`INPUT_${name.toUpperCase()}`] ?? "").trim();
 
@@ -15,8 +16,10 @@ function main() {
     console.log(`::add-mask::${key}`);
     env.FOOTGUN_API_KEY = key;
   }
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-  const r = spawnSync(npx, cliArgs({ path, failOn }), { env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, shell: process.platform === "win32" });
+  const plan = watchPlan({ watch: input("watch"), apiKey: key, project: input("project"), env: process.env });
+  if (plan.warning) console.log(plan.warning);
+  const inv = npxInvocation({ platform: process.platform, execPath: process.execPath, args: cliArgs({ path, failOn, watchArgs: plan.args }), exists: existsSync, join });
+  const r = spawnSync(inv.command, inv.args, { env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, shell: inv.shell });
   if (r.error) throw new Error(`could not run npx (is Node.js on the runner's PATH?): ${r.error.message}`);
   if (r.stderr) process.stderr.write(r.stderr);
   if (r.status !== 0 && r.status !== 1) throw new Error(`footgun scan exited ${r.status}`);

@@ -39,3 +39,8 @@ jobs:
         with:
           fail-on: sometimes
       - run: test "${{ steps.bad.outcome }}" = failure
+      - name: watch without an api-key warns, sends nothing and passes
+        uses: ./
+        with:
+          path: test/fixture
+          watch: "true"

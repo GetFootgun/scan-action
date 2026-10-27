@@ -17,6 +17,14 @@ inputs:
     description: Optional Footgun API key, to also scan with your private traps. Pass it from a secret.
     required: false
     default: ""
+  watch:
+    description: "Set to true to send this project's package names and versions and the finding locations (never code) to Footgun Watch. Needs api-key, on a Pro or Team plan."
+    required: false
+    default: "false"
+  project:
+    description: Name of the Watch project. Defaults to the repository (owner/name).
+    required: false
+    default: ${{ github.repository }}
 outputs:
   problems:
     description: Number of problems found, not counting check-yourself items.
