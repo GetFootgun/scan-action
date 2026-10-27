@@ -1,0 +1,41 @@
+name: test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan-fixture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Report only
+        id: report
+        uses: ./
+        with:
+          path: test/fixture
+      - name: Outputs count the Node 20 actions finding
+        run: |
+          test "${{ steps.report.outputs.will-break }}" -ge 1
+          case '${{ steps.report.outputs.badge }}' in *"getfootgun.com/badge.svg?s=scanned"*) ;; *) exit 1 ;; esac
+      - name: fail-on will-break fails the step
+        id: strict
+        continue-on-error: true
+        uses: ./
+        with:
+          path: test/fixture
+          fail-on: will-break
+      - run: test "${{ steps.strict.outcome }}" = failure
+      - name: fail-on breaks passes on a will-break finding
+        uses: ./
+        with:
+          path: test/fixture
+          fail-on: breaks
+      - name: A bad fail-on value fails
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          fail-on: sometimes
+      - run: test "${{ steps.bad.outcome }}" = failure

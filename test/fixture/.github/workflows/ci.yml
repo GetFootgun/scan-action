@@ -1,0 +1,12 @@
+# Fixture for the Footgun scan action's own test. Never runs: it is not in the repository's .github folder.
+name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm test

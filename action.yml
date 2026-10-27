@@ -1,0 +1,31 @@
+name: Footgun Scan
+description: Check your code for known API breaking changes and traps, with dated fixes, and list them in the job summary.
+author: Footgun
+branding:
+  icon: alert-triangle
+  color: orange
+inputs:
+  path:
+    description: Folder to scan, relative to the repository root.
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail the job when a problem of this kind is found: breaks (breaks now), will-break (breaks now or has a known break date or version), or none (report only)."
+    required: false
+    default: none
+  api-key:
+    description: Optional Footgun API key, to also scan with your private traps. Pass it from a secret.
+    required: false
+    default: ""
+outputs:
+  problems:
+    description: Number of problems found, not counting check-yourself items.
+  breaks:
+    description: Number of problems that break now.
+  will-break:
+    description: Number of problems with a known break date or version.
+  badge:
+    description: Markdown for a README badge dated today.
+runs:
+  using: node24
+  main: index.mjs
